@@ -2,6 +2,7 @@ const { response } = require('express');
 const bcrypt = require('bcryptjs');
 
 const Usuario = require('../models/usuario.model');
+const { generarJWT } = require('../helpers/jwt');
 
 
 const getUsuarios = async (req, res) => {
@@ -9,12 +10,15 @@ const getUsuarios = async (req, res) => {
     const usuarios = await Usuario.find({}, 'nombre email role google');
     res.json({
         ok: true,
-        usuarios
+        usuarios,
+        uid : req.uid 
     })
 }
 
 const crearUsuario = async (req, res = response) => {
     const { email, password } = req.body;
+
+   
 
 
 
@@ -34,12 +38,17 @@ const crearUsuario = async (req, res = response) => {
 
         usuario.password = bcrypt.hashSync(password, salt)
 
+        
         //Guardar Usuario
         await usuario.save()
 
+        //Generar  token
+        const token = await generarJWT(usuario.id)
+        
         res.json({
             ok: true,
-            usuario
+            usuario,
+            token
         })
 
     } catch (error) {
@@ -52,7 +61,7 @@ const crearUsuario = async (req, res = response) => {
 }
 
 
-const actualizarUsuario = async (req, res) => {
+const actualizarUsuario = async (req, res =response) => {
 
     //todo Valida Token y comprobar si el usuario es correcto
 
@@ -71,11 +80,10 @@ const actualizarUsuario = async (req, res) => {
 
 
         //Actualizar Usuario
-        const campos = req.body
-        if (usuarioDB.email === req.body.email) {
-            delete campos.email
-        } else {
-            const existeEmail = await Usuario.findOne({ email: req.body.email });
+        const {password, google, ...campos} = req.body
+        if (usuarioDB.email != email) {
+            
+            const existeEmail = await Usuario.findOne({ email });
             if (existeEmail) {
                 return res.status(400).json({
                     ok: false,
@@ -84,6 +92,8 @@ const actualizarUsuario = async (req, res) => {
             }
 
         }
+
+        campos.email = email
 
         delete campos.password; // Con esto hacemos que no se cambien los valores que son obligatorias para que no se sustituyan en la base de datos
         delete campos.google;
@@ -106,10 +116,46 @@ const actualizarUsuario = async (req, res) => {
     }
 }
 
+const borrarUsuario =  async (req, res = response) => {
+
+    const uid = req.params.id
+  try {
+
+    const usuarioDB = await Usuario.findById(uid);
+
+    if (!usuarioDB) {
+        return res.status(400).json({
+            ok: false,
+            msg: 'No existe un usuario por ese id'
+        });
+    }
+
+    await Usuario.findOneAndDelete(uid)
+
+    res.json({
+        ok: true,
+        msg: `${uid} borrado`
+    })
+
+    
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+        ok: false,
+        msg: 'Error inesperado'
+    })
+    
+    
+  }
+}
+
+
+
 
 module.exports = {
     getUsuarios,
     crearUsuario,
-    actualizarUsuario
+    actualizarUsuario,
+    borrarUsuario
 
 }
