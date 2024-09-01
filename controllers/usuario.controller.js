@@ -7,18 +7,36 @@ const { generarJWT } = require('../helpers/jwt');
 
 const getUsuarios = async (req, res) => {
 
-    const usuarios = await Usuario.find({}, 'nombre email role google');
-    res.json({
+    const desde = Number(req.query.desde) || 0;
+    
+
+    // Paginacion sin usar Promesas
+
+    // const usuarios = await Usuario.find({}, 'nombre email role google')
+    //                               .skip(desde)
+    //                               .limit(5);
+
+    // const totalRegistro = await Usuario.countDocuments();
+
+     const [ usuarios, totalRegistro] = await Promise.all([
+        Usuario
+            .find({}, 'nombre email role google img')
+            .skip(desde)
+            .limit(5),
+        Usuario.countDocuments()
+    ])
+
+        res.json({
         ok: true,
         usuarios,
-        uid : req.uid 
+        totalRegistro
     })
 }
 
 const crearUsuario = async (req, res = response) => {
     const { email, password } = req.body;
 
-   
+
 
 
 
@@ -38,13 +56,13 @@ const crearUsuario = async (req, res = response) => {
 
         usuario.password = bcrypt.hashSync(password, salt)
 
-        
+
         //Guardar Usuario
         await usuario.save()
 
         //Generar  token
         const token = await generarJWT(usuario.id)
-        
+
         res.json({
             ok: true,
             usuario,
@@ -61,7 +79,7 @@ const crearUsuario = async (req, res = response) => {
 }
 
 
-const actualizarUsuario = async (req, res =response) => {
+const actualizarUsuario = async (req, res = response) => {
 
     //todo Valida Token y comprobar si el usuario es correcto
 
@@ -80,9 +98,9 @@ const actualizarUsuario = async (req, res =response) => {
 
 
         //Actualizar Usuario
-        const {password, google, ...campos} = req.body
+        const { password, google, ...campos } = req.body
         if (usuarioDB.email != email) {
-            
+
             const existeEmail = await Usuario.findOne({ email });
             if (existeEmail) {
                 return res.status(400).json({
@@ -116,37 +134,37 @@ const actualizarUsuario = async (req, res =response) => {
     }
 }
 
-const borrarUsuario =  async (req, res = response) => {
+const borrarUsuario = async (req, res = response) => {
 
     const uid = req.params.id
-  try {
+    try {
 
-    const usuarioDB = await Usuario.findById(uid);
+        const usuarioDB = await Usuario.findById(uid);
 
-    if (!usuarioDB) {
-        return res.status(400).json({
+        if (!usuarioDB) {
+            return res.status(400).json({
+                ok: false,
+                msg: 'No existe un usuario por ese id'
+            });
+        }
+
+        await Usuario.findOneAndDelete(uid)
+
+        res.json({
+            ok: true,
+            msg: `${uid} borrado`
+        })
+
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
             ok: false,
-            msg: 'No existe un usuario por ese id'
-        });
+            msg: 'Error inesperado'
+        })
+
+
     }
-
-    await Usuario.findOneAndDelete(uid)
-
-    res.json({
-        ok: true,
-        msg: `${uid} borrado`
-    })
-
-    
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-        ok: false,
-        msg: 'Error inesperado'
-    })
-    
-    
-  }
 }
 
 
