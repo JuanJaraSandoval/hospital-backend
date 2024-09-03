@@ -13,6 +13,10 @@ const app = express()
 
 app.use( cors() )
 
+//Carpeta Publica
+
+app.use(express.static('publica'))
+
 
 //Lectura y parseo del body
 
